@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">Lab5-starter</string>
+    <string name="click_on_a_city_to_edit_or_delete_it_empty_the_name_field_to_delete_the_city">Click on a city to edit or delete it (Empty the name field to delete the city</string>
 </resources>

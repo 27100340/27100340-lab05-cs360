@@ -1,6 +1,7 @@
 package com.example.lab5_starter;
 
 import android.os.Bundle;
+import android.util.Log;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.ListView;
@@ -11,15 +12,27 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
+import com.google.android.gms.tasks.OnSuccessListener;
+import com.google.firebase.firestore.CollectionReference;
+import com.google.firebase.firestore.DocumentReference;
+import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.QueryDocumentSnapshot;
+
 import java.util.ArrayList;
 
-public class MainActivity extends AppCompatActivity implements CityDialogFragment.CityDialogListener {
+
+public class MainActivity extends AppCompatActivity implements CityDialogFragment.CityDialogListener,CityArrayAdapter.DeleteCityListener {
 
     private Button addCityButton;
     private ListView cityListView;
+//    private  Button deleteCityButton;
 
     private ArrayList<City> cityArrayList;
     private ArrayAdapter<City> cityArrayAdapter;
+
+    private FirebaseFirestore db;
+
+    private CollectionReference citiesRef;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -38,10 +51,32 @@ public class MainActivity extends AppCompatActivity implements CityDialogFragmen
 
         // create city array
         cityArrayList = new ArrayList<>();
-        cityArrayAdapter = new CityArrayAdapter(this, cityArrayList);
+        cityArrayAdapter = new CityArrayAdapter(this, cityArrayList,this);
         cityListView.setAdapter(cityArrayAdapter);
 
-        addDummyData();
+//        addDummyData();
+        db = FirebaseFirestore.getInstance();
+        citiesRef = db.collection("cities");
+
+        //snapshot listener
+        //basically clears current cities in the ui and adds cities fetched from db
+        citiesRef.addSnapshotListener((value, error) -> {
+            if (error != null) {
+                Log.e("Firestore", error.toString());
+                return;
+            }
+            if (value != null) {
+                cityArrayList.clear();
+                for (QueryDocumentSnapshot snapshot : value) {
+                    String name = snapshot.getString("name");
+                    String province = snapshot.getString("province");
+                    cityArrayList.add(new City(name, province));
+                    Log.d("Firestore", "City: " + name + " loaded from db");
+                }
+                cityArrayAdapter.notifyDataSetChanged();
+            }
+        });
+
 
         // set listeners
         addCityButton.setOnClickListener(view -> {
@@ -58,12 +93,24 @@ public class MainActivity extends AppCompatActivity implements CityDialogFragmen
     }
 
     @Override
-    public void updateCity(City city, String title, String year) {
+    public void updateCity(City city, String title, String province) {
+        if(title.isEmpty())
+        {
+            citiesRef.document(city.getName()).delete();
+            Log.d("Firestore","City " + city.getName() + " deleted from db!!!");
+            return;
+        }
+        citiesRef.document(city.getName()).delete();
         city.setName(title);
-        city.setProvince(year);
-        cityArrayAdapter.notifyDataSetChanged();
+        city.setProvince(province);
+//        cityArrayAdapter.notifyDataSetChanged();
 
         // Updating the database using delete + addition
+        City newcity = new City(title,province);
+        DocumentReference docref = citiesRef.document(newcity.getName());
+        docref.set(newcity);
+        Log.d("Firestore","City: " + city.getName() + " Province: " + city.getProvince() + " updated to: " + newcity.getName() + " " + newcity.getProvince());
+
     }
 
     @Override
@@ -71,13 +118,29 @@ public class MainActivity extends AppCompatActivity implements CityDialogFragmen
         cityArrayList.add(city);
         cityArrayAdapter.notifyDataSetChanged();
 
+        DocumentReference docref = citiesRef.document(city.getName()); //adds a given city by name if doesnt exist in the db
+        //listener to log success instances of writing to db
+        docref.set(city)
+                .addOnSuccessListener(new OnSuccessListener<Void>() {
+                    @Override
+                    public void onSuccess(Void aVoid) {
+                        Log.d("Firestore", "City" + city.getName() + " added to db");
+                    }
+                });
     }
 
-    public void addDummyData(){
-        City m1 = new City("Edmonton", "AB");
-        City m2 = new City("Vancouver", "BC");
-        cityArrayList.add(m1);
-        cityArrayList.add(m2);
+    @Override
+    public void deleteCity(City city) {
+        citiesRef.document(city.getName()).delete()
+                .addOnSuccessListener(aVoid -> Log.d("Firestore", city.getName() + " deleted from db"));
         cityArrayAdapter.notifyDataSetChanged();
     }
+
+//    public void addDummyData(){
+//        City m1 = new City("Edmonton", "AB");
+//        City m2 = new City("Vancouver", "BC");
+//        cityArrayList.add(m1);
+//        cityArrayList.add(m2);
+//        cityArrayAdapter.notifyDataSetChanged();
+//    }
 }

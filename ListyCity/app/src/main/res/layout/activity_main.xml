@@ -24,4 +24,6 @@
         android:layout_height="wrap_content"
         app:layout_constraintTop_toBottomOf="@+id/buttonAddCity" />
 
+
+
 </androidx.constraintlayout.widget.ConstraintLayout>
